@@ -360,12 +360,11 @@ with st.sidebar:
     predict_btn = st.button("🔍  PRÉDIRE LA RÉCOLTE", use_container_width=True)
 
 # ─── TABS ─────────────────────────────────────────────────────
-tab1, tab2, tab3, tab4, tab5 = st.tabs([
+tab1, tab2, tab3, tab4 = st.tabs([
     "🎯  Prédiction",
     "📊  Analyse des Modèles",
     "📈  Comparaison ROC",
     "🌍  Scénarios Burundi",
-    "ℹ️  À propos"
 ])
 
 # ══════════════════════════════════════════════════════════════
@@ -679,78 +678,6 @@ with tab4:
         st.markdown(f'<div class="info-box">✅ <strong>Unanimité :</strong> {", ".join(unanimes)}</div>', unsafe_allow_html=True)
     if discords:
         st.markdown(f'<div class="warning-box">⚡ <strong>Désaccords :</strong> {", ".join(discords)} — En cas de désaccord, privilégier la Forêt Aléatoire (meilleure AUC) ou adopter une approche de vote majoritaire.</div>', unsafe_allow_html=True)
-
-# ══════════════════════════════════════════════════════════════
-# TAB 5 — À PROPOS
-# ══════════════════════════════════════════════════════════════
-with tab5:
-    col_a, col_b = st.columns(2)
-    
-    with col_a:
-        st.markdown('<div class="section-header">📚 Contexte du Projet</div>', unsafe_allow_html=True)
-        st.markdown("""
-        <div class="info-box">
-        Ce projet a été développé dans le cadre du cours <strong>IA Appliquée à l'Agriculture</strong> 
-        — BAC 4 Génie Logiciel, Université Polytechnique de Gitega.
-        <br><br>
-        L'agriculture représente plus de 40% du PIB du Burundi et constitue la principale source 
-        de revenus pour plus de 90% de la population rurale. Ce système d'aide à la décision 
-        vise à anticiper les bonnes et mauvaises récoltes.
-        </div>
-        """, unsafe_allow_html=True)
-        
-        st.markdown('<div class="section-header">🗃️ Dataset</div>', unsafe_allow_html=True)
-        info = meta.get("dataset_info", {})
-        
-        cols_ds = st.columns(2)
-        with cols_ds[0]:
-            st.markdown(f'<div class="metric-card"><div class="metric-value">{info.get("total_rows", 1579)}</div><div class="metric-label">Observations</div></div>', unsafe_allow_html=True)
-            st.markdown("<br>", unsafe_allow_html=True)
-            st.markdown(f'<div class="metric-card"><div class="metric-value">{info.get("provinces", 15)}</div><div class="metric-label">Provinces</div></div>', unsafe_allow_html=True)
-        with cols_ds[1]:
-            st.markdown(f'<div class="metric-card"><div class="metric-value">6</div><div class="metric-label">Cultures</div></div>', unsafe_allow_html=True)
-            st.markdown("<br>", unsafe_allow_html=True)
-            st.markdown(f'<div class="metric-card"><div class="metric-value">2015–23</div><div class="metric-label">Période</div></div>', unsafe_allow_html=True)
-    
-    with col_b:
-        st.markdown('<div class="section-header">🤖 Modèles Implémentés</div>', unsafe_allow_html=True)
-        for key, (disp, acc_key) in [
-            ("decision_tree", ("Arbre de Décision", "decision_tree")),
-            ("random_forest", ("Forêt Aléatoire", "random_forest")),
-            ("logistic_regression", ("Régression Logistique", "logistic_regression")),
-        ]:
-            m = METRICS[key]
-            st.markdown(f"""
-            <div class="scenario-card">
-                <strong style="color:#64ffda">{disp}</strong><br>
-                <small>Accuracy : <strong>{m['accuracy']:.1%}</strong> &nbsp;|&nbsp; 
-                AUC : <strong>{m['auc']:.3f}</strong> &nbsp;|&nbsp; 
-                F1 : <strong>{m['f1']:.1%}</strong></small>
-            </div>
-            """, unsafe_allow_html=True)
-        
-        st.markdown('<div class="section-header" style="margin-top:1.5rem">⚠️ Limites du Modèle</div>', unsafe_allow_html=True)
-        st.markdown("""
-        <div class="warning-box">
-        • Dataset synthétique — nécessite validation sur données terrain réelles<br>
-        • Ne prend pas en compte : maladies, ravageurs, marchés, chocs climatiques extrêmes<br>
-        • Classe déséquilibrée (~75% mauvaises récoltes) — biais possible<br>
-        • Les prédictions sont des estimations probabilistes, pas des certitudes
-        </div>
-        """, unsafe_allow_html=True)
-    
-    # Recommandation finale
-    st.markdown('<div class="section-header">🎯 Recommandation de Déploiement (Q30)</div>', unsafe_allow_html=True)
-    st.markdown("""
-    <div class="info-box">
-    <strong>Modèle recommandé : Forêt Aléatoire</strong><br>
-    La Forêt Aléatoire offre le meilleur équilibre performance/robustesse (AUC ≈ 0.93, Accuracy ≈ 88%). 
-    Contrairement à l'arbre de décision seul, elle résiste au surapprentissage grâce au bagging. 
-    Contrairement à la régression logistique, elle capture les relations non-linéaires dans les données agricoles.<br><br>
-    <strong>Données supplémentaires souhaitables :</strong> type de sol, pH, données satellites NDVI, 
-    prix des intrants, accès aux marchés, données météo quotidiennes, historique des maladies.
-    </div>
-    """, unsafe_allow_html=True)
 
 # ─── FOOTER ───────────────────────────────────────────────────
 st.markdown("""
