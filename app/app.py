@@ -1,7 +1,4 @@
-"""
-Application Streamlit — Prédiction des Récoltes au Burundi
-Université Polytechnique de Gitega — BAC 4 Génie Logiciel
-"""
+
 
 import streamlit as st
 import pandas as pd
@@ -146,7 +143,7 @@ html, body, [class*="css"] { font-family: 'Lato', sans-serif; }
 /* Buttons */
 .stButton > button {
     background: linear-gradient(135deg, #64ffda, #00b4d8) !important;
-    color: #0a1628 !important;
+    color: #ffffff !important;
     font-weight: 900 !important;
     font-size: 1rem !important;
     letter-spacing: 1px !important;
@@ -156,10 +153,19 @@ html, body, [class*="css"] { font-family: 'Lato', sans-serif; }
     width: 100% !important;
     transition: all 0.2s !important;
     box-shadow: 0 4px 15px rgba(100, 255, 218, 0.3) !important;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35) !important;
 }
 .stButton > button:hover {
     transform: translateY(-2px) !important;
     box-shadow: 0 8px 25px rgba(100, 255, 218, 0.5) !important;
+}
+
+/* Bouton 'PRÉDIRE LA RÉCOLTE' (dernier bouton dans la sidebar) */
+[data-testid="stSidebar"] .stButton > button:last-of-type {
+    background: linear-gradient(135deg, #ffb74d, #ff8a65) !important;
+    color: #0a1628 !important;
+    font-weight: 900 !important;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.35) !important;
 }
 
 /* Info boxes */
@@ -323,7 +329,6 @@ PLOTLY_LAYOUT = dict(
 
 # ─── HEADER ───────────────────────────────────────────────────
 st.markdown('<div class="main-title">🌾 AgriPredict Burundi</div>', unsafe_allow_html=True)
-st.markdown('<div class="main-subtitle">Université Polytechnique de Gitega — BAC 4 Génie Logiciel — IA Appliquée à l\'Agriculture</div>', unsafe_allow_html=True)
 
 # ─── SIDEBAR ──────────────────────────────────────────────────
 with st.sidebar:
