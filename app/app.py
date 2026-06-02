@@ -247,8 +247,8 @@ MODEL_MAP = {
 }
 
 # ─── Helpers ──────────────────────────────────────────────────
-def encode_input(province, culture, saison, altitude, pluv, temp, superficie,
-                 engrais, irrigation):
+def encode_input(province, culture, saison_code, altitude, pluv, temp, superficie,
+                 engrais, irrigation): 
     """Encode une entrée utilisateur selon le pipeline d'entraînement."""
     row = {col: 0 for col in FEATURE_COLS}
     
@@ -261,7 +261,7 @@ def encode_input(province, culture, saison, altitude, pluv, temp, superficie,
     row["acces_irrigation"]    = irrigation
     
     # Encodage saison (drop_first → saison_B)
-    if saison == "B":
+    if saison_code == "B":
         k = "saison_B"
         if k in row: row[k] = 1
     
@@ -283,8 +283,11 @@ def predict_all(province, culture, saison, altitude, pluv, temp,
                      superficie, engrais, irrigation)
     results = {}
     for label, (key, model) in MODEL_MAP.items():
-        pred  = int(model.predict(X)[0])
-        proba = float(model.predict_proba(X)[0][1])
+        proba_values = model.predict_proba(X)[0]
+        # Find the probability for class 1 if labels are ordered differently
+        class_idx = list(model.classes_).index(1) if 1 in model.classes_ else 1
+        proba = float(proba_values[class_idx])
+        pred = int(proba >= 0.5)
         results[label] = {"key": key, "pred": pred, "proba": proba}
     return results
 
@@ -337,7 +340,8 @@ with st.sidebar:
     
     province  = st.selectbox("🗺️ Province",  PROVINCES, index=PROVINCES.index("Kayanza"))
     culture   = st.selectbox("🌱 Culture",   CULTURES,  index=0)
-    saison    = st.selectbox("📅 Saison",    ["A (mars–juin)", "B (sept–déc)"])
+    # Saison: remettre le sélecteur pour permettre l'influence sur la prédiction
+    saison = st.selectbox("📅 Saison", ["A (mars–juin)", "B (sept–déc)"], index=0)
     saison_code = "A" if saison.startswith("A") else "B"
     
     st.markdown("---")
@@ -359,330 +363,64 @@ with st.sidebar:
     
     predict_btn = st.button("🔍  PRÉDIRE LA RÉCOLTE", use_container_width=True)
 
-# ─── TABS ─────────────────────────────────────────────────────
-tab1, tab2, tab3, tab4 = st.tabs([
-    "🎯  Prédiction",
-    "📊  Analyse des Modèles",
-    "📈  Comparaison ROC",
-    "🌍  Scénarios Burundi",
-])
-
-# ══════════════════════════════════════════════════════════════
-# TAB 1 — PRÉDICTION
-# ══════════════════════════════════════════════════════════════
-with tab1:
-    if predict_btn or True:  # Always show the interface
-        results = predict_all(province, culture, saison_code, altitude, pluv, temp,
-                              superficie, int(engrais), int(irrigation))
-        
-        chosen_key, chosen_model = MODEL_MAP[model_choice]
-        chosen_res = results[model_choice]
-        pred  = chosen_res["pred"]
-        proba = chosen_res["proba"]
-        
-        # Résultat principal
-        col_main, col_side = st.columns([2, 1])
-        
-        with col_main:
-            st.markdown('<div class="section-header">Résultat de la Prédiction</div>', unsafe_allow_html=True)
-            
-            if pred == 1:
-                st.markdown(f"""
-                <div class="pred-good">
-                    <p class="pred-title" style="color:#00c853">✅ BONNE RÉCOLTE</p>
-                    <p class="pred-subtitle">{province} — {culture} — Saison {saison_code}</p>
-                    <p class="pred-proba" style="color:#00c853">{proba*100:.1f}%</p>
-                    <p class="pred-subtitle">Probabilité de bonne récolte</p>
-                </div>
-                """, unsafe_allow_html=True)
-            else:
-                st.markdown(f"""
-                <div class="pred-bad">
-                    <p class="pred-title" style="color:#f44336">⚠️ MAUVAISE RÉCOLTE</p>
-                    <p class="pred-subtitle">{province} — {culture} — Saison {saison_code}</p>
-                    <p class="pred-proba" style="color:#f44336">{proba*100:.1f}%</p>
-                    <p class="pred-subtitle">Probabilité de bonne récolte</p>
-                </div>
-                """, unsafe_allow_html=True)
-            
-            # Conseils agronomiques
-            st.markdown("<br>", unsafe_allow_html=True)
-            tips = []
-            if pluv < 500:
-                tips.append("💧 Pluviométrie très faible — envisager l'irrigation d'appoint ou cultures résistantes à la sécheresse")
-            if pluv > 1300:
-                tips.append("🌊 Pluviométrie excessive — risque de lessivage et maladies fongiques")
-            if not engrais:
-                tips.append("🧪 L'utilisation d'engrais augmente significativement les rendements (+35% en moyenne)")
-            if not irrigation and pluv < 700:
-                tips.append("💦 Accès à l'irrigation recommandé avec cette pluviométrie")
-            if temp > 27:
-                tips.append("🌡️ Températures élevées — risque de stress thermique pour cette culture")
-            if superficie > 300:
-                tips.append("📐 Grande superficie — mécanisation agricole recommandée")
-            
-            if tips:
-                st.markdown('<div class="section-header" style="font-size:1rem;margin-top:1rem">💡 Recommandations Agronomiques</div>', unsafe_allow_html=True)
-                for t in tips:
-                    st.markdown(f'<div class="info-box">{t}</div>', unsafe_allow_html=True)
-        
-        with col_side:
-            # Gauge
-            fig_gauge = make_gauge(proba, f"Probabilité ({chosen_key.replace('_',' ').title()})")
-            st.plotly_chart(fig_gauge, use_container_width=True, key="gauge_main")
-            
-            # Métriques du modèle sélectionné
-            m = METRICS[chosen_key]
-            st.markdown('<div class="section-header" style="font-size:0.9rem">Métriques du Modèle</div>', unsafe_allow_html=True)
-            
-            cols_m = st.columns(2)
-            with cols_m[0]:
-                st.markdown(f'<div class="metric-card"><div class="metric-value">{m["accuracy"]:.1%}</div><div class="metric-label">Accuracy</div></div>', unsafe_allow_html=True)
-                st.markdown("<br>", unsafe_allow_html=True)
-                st.markdown(f'<div class="metric-card"><div class="metric-value">{m["f1"]:.1%}</div><div class="metric-label">F1-Score</div></div>', unsafe_allow_html=True)
-            with cols_m[1]:
-                st.markdown(f'<div class="metric-card"><div class="metric-value">{m["auc"]:.3f}</div><div class="metric-label">AUC-ROC</div></div>', unsafe_allow_html=True)
-                st.markdown("<br>", unsafe_allow_html=True)
-                st.markdown(f'<div class="metric-card"><div class="metric-value">{m["precision"]:.1%}</div><div class="metric-label">Précision</div></div>', unsafe_allow_html=True)
-        
-        # Comparaison des 3 modèles
-        st.markdown("<br>", unsafe_allow_html=True)
-        st.markdown('<div class="section-header">Comparaison des 3 Modèles sur cette Parcelle</div>', unsafe_allow_html=True)
-        
-        cols3 = st.columns(3)
-        icons = ["🌳", "🌲", "📈"]
-        for i, (lbl, res) in enumerate(results.items()):
-            with cols3[i]:
-                fig_g = make_gauge(res["proba"], lbl.split(" ", 1)[1])
-                st.plotly_chart(fig_g, use_container_width=True, key=f"gauge_{i}")
-                verdict = "✅ Bonne" if res["pred"] == 1 else "⚠️ Mauvaise"
-                color   = "#00c853" if res["pred"] == 1 else "#f44336"
-                st.markdown(f'<p style="text-align:center;font-weight:900;color:{color};font-size:1.1rem">{verdict}</p>', unsafe_allow_html=True)
-
-# ══════════════════════════════════════════════════════════════
-# TAB 2 — ANALYSE DES MODÈLES
-# ══════════════════════════════════════════════════════════════
-with tab2:
-    st.markdown('<div class="section-header">Performance Globale des Modèles</div>', unsafe_allow_html=True)
+# ─── INTERFACE PRINCIPALE (SIMPLE) ──────────────────────────────────
+# On propose uniquement le formulaire, le choix du modèle, le résultat et les métriques.
+if predict_btn:  # Afficher l'interface uniquement après clic sur PRÉDIRE
+    results = predict_all(province, culture, saison_code, altitude, pluv, temp,
+                          superficie, int(engrais), int(irrigation))
+    # Encoded features for debugging / verification
+    X_enc = encode_input(province, culture, saison_code, altitude, pluv, temp,
+                         superficie, int(engrais), int(irrigation))
     
-    # Métriques comparatives
-    metric_names = ["Accuracy", "F1-Score", "AUC-ROC", "Précision", "Rappel"]
-    model_display = {
-        "decision_tree": "Arbre de Décision",
-        "random_forest": "Forêt Aléatoire",
-        "logistic_regression": "Régression Logistique"
-    }
+    chosen_key, chosen_model = MODEL_MAP[model_choice]
+    chosen_res = results[model_choice]
+    pred  = chosen_res["pred"]
+    proba = chosen_res["proba"]
     
-    df_metrics = pd.DataFrame([
-        {
-            "Modèle": model_display[k],
-            "Accuracy": f"{v['accuracy']:.1%}",
-            "F1-Score": f"{v['f1']:.1%}",
-            "AUC-ROC": f"{v['auc']:.3f}",
-            "Précision": f"{v['precision']:.1%}",
-            "Rappel": f"{v['recall']:.1%}",
-        }
-        for k, v in METRICS.items()
-    ])
-    st.dataframe(df_metrics.set_index("Modèle"), use_container_width=True)
+    # Résultat principal
+    col_main, col_side = st.columns([2, 1])
     
-    col_a, col_b = st.columns(2)
-    
-    with col_a:
-        # Feature importance
-        st.markdown('<div class="section-header" style="font-size:1rem">Importance des Variables — Forêt Aléatoire</div>', unsafe_allow_html=True)
-        rf_fi = meta["rf_feature_importances"]
-        top20 = sorted(rf_fi.items(), key=lambda x: x[1], reverse=True)[:15]
-        feats, vals = zip(*top20)
+    with col_main:
+        st.markdown('<div class="section-header">Résultat de la Prédiction</div>', unsafe_allow_html=True)
         
-        # Clean feature names for display
-        def clean_name(n):
-            n = n.replace("province_", "Province: ").replace("culture_", "Culture: ")
-            n = n.replace("saison_", "Saison ").replace("_", " ").title()
-            return n
-        
-        feats_clean = [clean_name(f) for f in feats]
-        
-        fig_fi = go.Figure(go.Bar(
-            x=list(vals), y=feats_clean,
-            orientation='h',
-            marker=dict(
-                color=list(vals),
-                colorscale=[[0, "#1e4d6b"], [0.5, "#00b4d8"], [1, "#64ffda"]],
-                showscale=False
-            )
-        ))
-        fig_fi.update_layout(**PLOTLY_LAYOUT, height=450,
-            title=dict(text="Top 15 Features", font=dict(color="#64ffda", size=13)))
-        fig_fi.update_yaxes(autorange="reversed")
-        st.plotly_chart(fig_fi, use_container_width=True, key="fi_rf")
-    
-    with col_b:
-        # Overfitting curve
-        st.markdown('<div class="section-header" style="font-size:1rem">Overfitting — Arbre de Décision</div>', unsafe_allow_html=True)
-        ov = meta["overfitting"]
-        
-        fig_ov = go.Figure()
-        fig_ov.add_trace(go.Scatter(
-            x=ov["depths"], y=ov["train_scores"], name="Train",
-            line=dict(color="#64ffda", width=2.5), mode="lines+markers",
-            marker=dict(size=6)
-        ))
-        fig_ov.add_trace(go.Scatter(
-            x=ov["depths"], y=ov["test_scores"], name="Test",
-            line=dict(color="#f48c06", width=2.5), mode="lines+markers",
-            marker=dict(size=6)
-        ))
-        best = np.argmax(ov["test_scores"]) + 1
-        fig_ov.add_vline(x=best, line_dash="dash", line_color="#ff6b6b",
-                         annotation_text=f"Best depth={best}", annotation_font_color="#ff6b6b")
-        fig_ov.update_layout(**PLOTLY_LAYOUT, height=300,
-            xaxis_title="Profondeur max", yaxis_title="Accuracy",
-            legend=dict(bgcolor="rgba(0,0,0,0.3)", bordercolor="rgba(100,255,218,0.2)"))
-        st.plotly_chart(fig_ov, use_container_width=True, key="overfitting")
-        
-        # Matrice de confusion RF
-        st.markdown('<div class="section-header" style="font-size:1rem">Matrice de Confusion — Forêt Aléatoire</div>', unsafe_allow_html=True)
-        cm = METRICS["random_forest"]["confusion_matrix"]
-        labels = ["Mauvaise Récolte", "Bonne Récolte"]
-        fig_cm = go.Figure(go.Heatmap(
-            z=cm, x=labels, y=labels,
-            colorscale=[[0, "#0a1628"], [1, "#64ffda"]],
-            showscale=False,
-            text=cm, texttemplate="%{text}",
-            textfont={"size": 22, "color": "white"}
-        ))
-        fig_cm.update_layout(**PLOTLY_LAYOUT, height=260,
-            xaxis_title="Prédit", yaxis_title="Réel")
-        st.plotly_chart(fig_cm, use_container_width=True, key="conf_mat")
-
-# ══════════════════════════════════════════════════════════════
-# TAB 3 — COURBES ROC
-# ══════════════════════════════════════════════════════════════
-with tab3:
-    st.markdown('<div class="section-header">Courbes ROC — Comparaison des 3 Modèles</div>', unsafe_allow_html=True)
-    
-    colors = {"decision_tree": "#f48c06", "random_forest": "#64ffda", "logistic_regression": "#e040fb"}
-    names  = {"decision_tree": "Arbre de Décision", "random_forest": "Forêt Aléatoire", "logistic_regression": "Régression Logistique"}
-    
-    fig_roc = go.Figure()
-    # Ligne diagonale
-    fig_roc.add_trace(go.Scatter(x=[0, 1], y=[0, 1], mode="lines",
-        line=dict(dash="dash", color="#495670", width=1.5),
-        name="Aléatoire (AUC=0.5)", showlegend=True))
-    
-    for key, m in METRICS.items():
-        fig_roc.add_trace(go.Scatter(
-            x=m["fpr"], y=m["tpr"],
-            mode="lines", name=f"{names[key]} (AUC={m['auc']:.3f})",
-            line=dict(color=colors[key], width=2.5)
-        ))
-    
-    fig_roc.update_layout(**PLOTLY_LAYOUT, height=500,
-        xaxis_title="Taux de Faux Positifs (FPR)",
-        yaxis_title="Taux de Vrais Positifs (TPR)",
-        title=dict(text="Courbes ROC — Prédiction de Bonne Récolte", font=dict(color="#64ffda", size=15)),
-        legend=dict(bgcolor="rgba(10,22,40,0.8)", bordercolor="rgba(100,255,218,0.2)", x=0.55, y=0.1))
-    fig_roc.update_xaxes(range=[0, 1])
-    fig_roc.update_yaxes(range=[0, 1])
-    
-    st.plotly_chart(fig_roc, use_container_width=True, key="roc")
-    
-    # Explication
-    col_exp1, col_exp2, col_exp3 = st.columns(3)
-    for col, (key, m) in zip([col_exp1, col_exp2, col_exp3], METRICS.items()):
-        with col:
-            auc_v = m["auc"]
-            quality = "🏆 Excellent" if auc_v > 0.9 else ("✅ Bon" if auc_v > 0.8 else "⚠️ Acceptable")
+        if pred == 1:
             st.markdown(f"""
-            <div class="metric-card">
-                <div class="metric-value" style="color:{colors[key]}">{auc_v:.3f}</div>
-                <div class="metric-label">AUC — {names[key]}</div>
-                <div style="color:{colors[key]};font-size:0.9rem;margin-top:0.5rem;font-weight:700">{quality}</div>
+            <div class="pred-good">
+                <p class="pred-title" style="color:#00c853">✅ BONNE RÉCOLTE</p>
+                <p class="pred-subtitle">{province} — {culture}</p>
+                <p class="pred-proba" style="color:#00c853">{proba*100:.1f}%</p>
+                <p class="pred-subtitle">Probabilité de bonne récolte</p>
             </div>
             """, unsafe_allow_html=True)
-    
-    st.markdown('<div class="info-box" style="margin-top:1.5rem">📚 <strong>Interprétation AUC :</strong> L\'AUC (Area Under Curve) mesure la capacité du modèle à discriminer entre bonnes et mauvaises récoltes, indépendamment du seuil de décision. AUC=1 = parfait, AUC=0.5 = aléatoire. La Forêt Aléatoire (AUC≈0.93) est nettement supérieure aux autres modèles.</div>', unsafe_allow_html=True)
-
-# ══════════════════════════════════════════════════════════════
-# TAB 4 — SCÉNARIOS BURUNDI
-# ══════════════════════════════════════════════════════════════
-with tab4:
-    st.markdown('<div class="section-header">Scénarios Agricoles Réels au Burundi (Exercice 6)</div>', unsafe_allow_html=True)
-    
-    SCENARIOS = [
-        {"label": "🌽 Kayanza – Maïs",       "province": "Kayanza",  "culture": "Maïs",        "altitude": 1980, "pluv": 920,  "temp": 17.8, "engrais": True,  "irrigation": False, "superficie": 45},
-        {"label": "🥔 Bubanza – Manioc",      "province": "Bubanza",  "culture": "Manioc",      "altitude": 790,  "pluv": 550,  "temp": 25.4, "engrais": False, "irrigation": False, "superficie": 30},
-        {"label": "🫘 Gitega – Haricot",       "province": "Gitega",   "culture": "Haricot",     "altitude": 1720, "pluv": 430,  "temp": 18.2, "engrais": False, "irrigation": False, "superficie": 20},
-        {"label": "🍠 Cibitoke – Patate douce","province": "Cibitoke", "culture": "Patate douce","altitude": 810,  "pluv": 810,  "temp": 24.1, "engrais": True,  "irrigation": True,  "superficie": 55},
-    ]
-    
-    all_results = []
-    for s in SCENARIOS:
-        r = predict_all(s["province"], s["culture"], "A", s["altitude"],
-                        s["pluv"], s["temp"], s["superficie"],
-                        int(s["engrais"]), int(s["irrigation"]))
-        all_results.append(r)
-    
-    # Tableau récap
-    table_rows = []
-    for s, r in zip(SCENARIOS, all_results):
-        row = {"Scénario": s["label"]}
-        for lbl, res in r.items():
-            short = lbl.split(" ", 1)[1]
-            verdict = "✅ Bonne" if res["pred"] == 1 else "⚠️ Mauvaise"
-            row[short] = f"{verdict} ({res['proba']*100:.0f}%)"
-        table_rows.append(row)
-    
-    df_tab = pd.DataFrame(table_rows).set_index("Scénario")
-    st.dataframe(df_tab, use_container_width=True)
-    
-    # Détail par scénario
-    st.markdown("<br>", unsafe_allow_html=True)
-    for s, r in zip(SCENARIOS, all_results):
-        with st.expander(f"📋 Détail — {s['label']}"):
-            c1, c2, c3, c4 = st.columns(4)
-            with c1: st.metric("⛰️ Altitude", f"{s['altitude']} m")
-            with c2: st.metric("🌧️ Pluviométrie", f"{s['pluv']} mm")
-            with c3: st.metric("🌡️ Température", f"{s['temp']} °C")
-            with c4: st.metric("🧪 Engrais", "Oui" if s["engrais"] else "Non")
-            
-            cols_g = st.columns(3)
-            for i, (lbl, res) in enumerate(r.items()):
-                with cols_g[i]:
-                    fig_g = make_gauge(res["proba"], lbl.split(" ", 1)[1])
-                    st.plotly_chart(fig_g, use_container_width=True, key=f"scen_{s['province']}_{i}")
-            
-            # Alerte spéciale scénario 3
-            if s["province"] == "Gitega" and s["culture"] == "Haricot":
-                st.markdown("""
-                <div class="warning-box">
-                ⚠️ <strong>Attention :</strong> La pluviométrie de 430mm est très insuffisante pour le Haricot (optimum 700–900mm). 
-                Les modèles prédisent une mauvaise récolte avec forte confiance. 
-                Recommandations : mise en place de l'irrigation, ou report de la saison de semis, ou substitution par du Sorgho (plus résistant à la sécheresse).
-                </div>
-                """, unsafe_allow_html=True)
-    
-    # Analyse désaccords
-    st.markdown('<div class="section-header" style="margin-top:2rem">Analyse des Désaccords entre Modèles</div>', unsafe_allow_html=True)
-    unanimes = []
-    discords = []
-    for s, r in zip(SCENARIOS, all_results):
-        preds = [res["pred"] for res in r.values()]
-        if len(set(preds)) == 1:
-            unanimes.append(s["label"])
         else:
-            discords.append(s["label"])
-    
-    if unanimes:
-        st.markdown(f'<div class="info-box">✅ <strong>Unanimité :</strong> {", ".join(unanimes)}</div>', unsafe_allow_html=True)
-    if discords:
-        st.markdown(f'<div class="warning-box">⚡ <strong>Désaccords :</strong> {", ".join(discords)} — En cas de désaccord, privilégier la Forêt Aléatoire (meilleure AUC) ou adopter une approche de vote majoritaire.</div>', unsafe_allow_html=True)
+            st.markdown(f"""
+            <div class="pred-bad">
+                <p class="pred-title" style="color:#f44336">⚠️ MAUVAISE RÉCOLTE</p>
+                <p class="pred-subtitle">{province} — {culture}</p>
+                <p class="pred-proba" style="color:#f44336">{proba*100:.1f}%</p>
+                <p class="pred-subtitle">Probabilité de bonne récolte</p>
+            </div>
+            """, unsafe_allow_html=True)
+        
+    with col_side:
+        # Gauge simple
+        fig_gauge = make_gauge(proba, f"Probabilité ({chosen_key.replace('_',' ').title()})")
+        st.plotly_chart(fig_gauge, use_container_width=True, key="gauge_main")
+        
+        # Métriques du modèle sélectionné (seulement Accuracy, F1, AUC)
+        m = METRICS[chosen_key]
+        st.markdown('<div class="section-header" style="font-size:0.9rem">Métriques du Modèle</div>', unsafe_allow_html=True)
+        cols_m = st.columns(3)
+        with cols_m[0]:
+            st.markdown(f'<div class="metric-card"><div class="metric-value">{m["accuracy"]:.1%}</div><div class="metric-label">Accuracy</div></div>', unsafe_allow_html=True)
+        with cols_m[1]:
+            st.markdown(f'<div class="metric-card"><div class="metric-value">{m["f1"]:.1%}</div><div class="metric-label">F1-Score</div></div>', unsafe_allow_html=True)
+        with cols_m[2]:
+            st.markdown(f'<div class="metric-card"><div class="metric-value">{m["auc"]:.3f}</div><div class="metric-label">AUC</div></div>', unsafe_allow_html=True)
 
-# ─── FOOTER ───────────────────────────────────────────────────
-st.markdown("""
-<div class="footer">
-    AgriPredict Burundi • Université Polytechnique de Gitega • BAC 4 Génie Logiciel<br>
-    Modèles : Arbre de Décision | Forêt Aléatoire | Régression Logistique • Scikit-learn + Streamlit
-</div>
-""", unsafe_allow_html=True)
+    # debug removed per user request
+
+
+
+
+# Footer removed per user request
