@@ -347,8 +347,8 @@ with st.sidebar:
     superficie= st.slider("📐 Superficie (ha)",   5.0, 800.0, 50.0, step=5.0)
     
     st.markdown("---")
-    engrais   = st.toggle("🧪 Utilisation d'engrais",  value=True)
-    irrigation= st.toggle("💧 Accès à l'irrigation",   value=False)
+    engrais   = st.checkbox("🧪 Utilisation d'engrais",  value=True)
+    irrigation= st.checkbox("💧 Accès à l'irrigation",   value=False)
     
     st.markdown("---")
     model_choice = st.selectbox(
