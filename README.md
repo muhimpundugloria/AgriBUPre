@@ -49,3 +49,8 @@ Ensuite, ouvrez l'URL fournie par Streamlit dans votre navigateur.
 - Le pipeline remplace les valeurs manquantes par des imputations adaptées (`pluviométrie` par médiane, `utilisation_engrais` par mode).
 - Les colonnes `rendement_t_ha` et `production_totale_t` sont exclues des features pour éviter les fuites de données.
 - La variable cible est `bonne_recolte`.
+
+## Interface
+
+- L’application Streamlit (`app/app.py`) a été refondue (nouvelle présentation, nouveau design et catégorisation de la probabilité) tout en conservant la compatibilité avec `metadata.json` et le format des features.
+
