@@ -10,7 +10,7 @@ import streamlit as st
 # Configuration
 # ─────────────────────────────────────────────────────────────
 st.set_page_config(
-    page_title="AgriPredict • Burundi",
+    page_title="AgroRendement • Burundi",
     page_icon="🌿",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -263,7 +263,7 @@ def make_semicircle_gauge(p1: float):
 # ─────────────────────────────────────────────────────────────
 # UI
 # ─────────────────────────────────────────────────────────────
-st.markdown("<div class='app-brand'>AgriPredict Burundi</div>", unsafe_allow_html=True)
+st.markdown("<div class='app-brand'>AgroRendement Burundi</div>", unsafe_allow_html=True)
 st.markdown(
     "<div class='app-tagline'>Simulation de probabilité de bonne récolte</div>", unsafe_allow_html=True
 )
